@@ -28,11 +28,7 @@
     background: var(--navy); color: #fff; display: flex; align-items: center; gap: 18px;
     padding: 10px 18px; flex-wrap: wrap;
   }
-  .brand { display: flex; align-items: center; gap: 10px; }
-  .brand svg { width: 30px; height: 30px; flex: none; }
-  .brand b { font-size: 17px; letter-spacing: .2px; display: block; }
-  .brand span { font-size: 12px; color: #AEB5CC; }
-  #scenarios { display: flex; gap: 8px; flex-wrap: wrap; flex: 1; justify-content: center; }
+  #scenarios { display: flex; gap: 8px; flex-wrap: wrap; flex: 1; }
   .scn {
     background: rgba(255,255,255,.08); color: #fff; border: 1px solid rgba(255,255,255,.18);
     border-radius: 999px; padding: 6px 13px 6px 7px; display: flex; align-items: center; gap: 7px; font-weight: 600;
@@ -148,7 +144,6 @@
   .keys { font-size: 11px; color: var(--muted); white-space: nowrap; }
 
   @media (max-width: 1360px) {
-    .brand span { display: none; }
     .scn { padding: 5px 11px 5px 6px; font-size: 13px; }
     .switch, .ghost { padding: 5px 10px; font-size: 13px; }
   }
@@ -168,10 +163,6 @@
 </head>
 <body>
 <header>
-  <div class="brand">
-    <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M16 2 4 6.5v8.2c0 7.3 5 13.4 12 15.3 7-1.9 12-8 12-15.3V6.5L16 2Z" fill="#E2B33A"/><path d="m11 16 3.5 3.5L21.5 12" fill="none" stroke="#141A33" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-    <div><b>Agent Shield</b><span>Concept demo · not a Visa product</span></div>
-  </div>
   <nav id="scenarios"></nav>
   <div class="controls">
     <button id="shieldBtn" class="switch on" title="S"><span class="dot"></span><span id="shieldLbl">Agent Shield ON</span></button>
