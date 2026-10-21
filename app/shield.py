@@ -111,7 +111,7 @@ class Shield:
                 self._append("payment_request", {"agent": agent_id, "invoice": body.get("invoice_ref"), "decision": "blocked", "reason": "agent_revoked"})
                 self.bus.emit(
                     "shield", "Blocked: this agent has been switched off",
-                    f"{agent_id} was revoked with the company's kill switch. No card, no payment.", "bad",
+                    f"The {agent['platform']} agent was revoked with the company's kill switch. No card, no payment.", "bad",
                     kind="decision", outcome="blocked",
                     checks=[{"s": "bad", "t": "Agent key revoked in Visa's agent directory"}],
                 )
@@ -154,7 +154,7 @@ class Shield:
             amount = 0.0
 
         checks = [
-            {"s": "ok", "t": f"Signed by registered agent {agent['agent_id']} ({agent['platform']})"},
+            {"s": "ok", "t": f"Signed by the registered {agent['platform']} agent"},
             {"s": "ok" if self.policy_valid() else "bad", "t": "Company Rules v1, signed by the CFO with a passkey"},
         ]
         fraud = False
@@ -342,9 +342,9 @@ class Shield:
             agent["status"] = "active" if active else "revoked"
             self._append("agent_" + ("restored" if active else "revoked"), {"agent": agent_id, "by": "Company (kill switch)"})
         if active:
-            self.bus.emit("company", "Agent switched back on", f"{agent_id} can request payments again.", "ok")
+            self.bus.emit("company", "Agent switched back on", f"The {agent['platform']} agent can request payments again.", "ok")
         else:
-            self.bus.emit("company", "Kill switch pressed", f"{agent_id} is revoked in Visa's agent directory.", "bad")
+            self.bus.emit("company", "Kill switch pressed", f"The {agent['platform']} agent is revoked in Visa's agent directory.", "bad")
             self.bus.emit("shield", "Agent key revoked", "All of this agent's payment requests now stop, at every bank, at once.", "bad")
         return 200, {"agent_id": agent_id, "status": agent["status"]}
 

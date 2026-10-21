@@ -269,7 +269,7 @@ function renderCompanyFixed() {
     <div class="policy"><b>Company Rules v${p.version}</b> <span class="sig">${p.signature_valid ? "✓ signed by CFO (passkey)" : "✕ signature invalid"}</span>
       <ul><li>Auto-approve up to ${money(p.auto_approve_limit)}</li><li>New suppliers need a human</li>
       <li>Block bank-detail changes</li><li>Max ${p.max_payments_per_hour} payments/hour per agent</li></ul></div>
-    <div class="agentrow"><span><b>${esc(a.agent_id)}</b> · ${esc(a.platform)} · rating ${esc(a.rating)}</span>
+    <div class="agentrow"><span><b>${esc(a.platform)}</b> agent · rating ${esc(a.rating)}</span>
       <span class="pill ${revoked ? "revoked" : "active"}">${revoked ? "REVOKED" : "ACTIVE"}</span></div>
     <button class="btn kill ${revoked ? "revoked" : ""}" onclick="toggleKill()">${revoked ? "Restore agent" : "Kill switch: revoke agent"}</button>`;
 }
