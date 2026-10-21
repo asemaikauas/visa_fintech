@@ -1,0 +1,12 @@
+CLOUDCO INC.                         INVOICE
+Invoice INV-5531            Date 20 Oct 2026
+Bill to: Company, Accounts Payable
+Purchase order: PO-1187
+
+Cloud hosting, October 2026        $4,250.00
+--------------------------------------------
+TOTAL DUE                     USD  $4,250.00
+
+Pay by card.
+Visa merchant ID: visa_merchant_88812
+Terms: Net 30

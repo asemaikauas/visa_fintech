@@ -1,0 +1,372 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agent Shield · Concept demo</title>
+<style>
+  :root {
+    --navy: #141A33; --navy-2: #1F2A6B; --indigo: #2E3FB0; --gold: #E2B33A;
+    --ok: #1B7A47; --ok-bg: #E6F3EB; --warn: #A86200; --warn-bg: #FCF1DE;
+    --bad: #B3301C; --bad-bg: #FBE9E6; --accent: #2E3FB0; --accent-bg: #E8EBFA;
+    --info: #5B6475; --info-bg: #F1F3F7;
+    --bg: #EEF0F5; --panel: #FFFFFF; --line: #E0E4EC; --text: #141A33; --muted: #5B6475;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Helvetica, Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: var(--bg); color: var(--text); font: 14px/1.45 var(--sans);
+    display: grid; grid-template-rows: auto auto auto minmax(0, 1fr) auto; height: 100vh; overflow: hidden;
+  }
+  button { font: inherit; cursor: pointer; }
+  button:disabled { cursor: default; opacity: .45; }
+
+  /* ---------- header ---------- */
+  header {
+    background: var(--navy); color: #fff; display: flex; align-items: center; gap: 18px;
+    padding: 10px 18px; flex-wrap: wrap;
+  }
+  .brand { display: flex; align-items: center; gap: 10px; }
+  .brand svg { width: 30px; height: 30px; flex: none; }
+  .brand b { font-size: 17px; letter-spacing: .2px; display: block; }
+  .brand span { font-size: 12px; color: #AEB5CC; }
+  #scenarios { display: flex; gap: 8px; flex-wrap: wrap; flex: 1; justify-content: center; }
+  .scn {
+    background: rgba(255,255,255,.08); color: #fff; border: 1px solid rgba(255,255,255,.18);
+    border-radius: 999px; padding: 6px 13px 6px 7px; display: flex; align-items: center; gap: 7px; font-weight: 600;
+    transition: background .15s, border-color .15s;
+  }
+  .scn:hover:not(:disabled) { background: rgba(255,255,255,.16); }
+  .scn .k {
+    width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-size: 12px;
+    background: rgba(255,255,255,.16); color: #fff;
+  }
+  .scn.active { background: var(--gold); color: var(--navy); border-color: var(--gold); }
+  .scn.active .k { background: var(--navy); color: var(--gold); }
+  .controls { display: flex; gap: 8px; align-items: center; }
+  .switch {
+    display: flex; align-items: center; gap: 8px; border-radius: 999px; padding: 6px 12px; font-weight: 600;
+    border: 1px solid rgba(255,255,255,.25); background: transparent; color: #fff;
+  }
+  .switch .dot { width: 30px; height: 18px; border-radius: 999px; background: #59607A; position: relative; transition: background .2s; }
+  .switch .dot::after { content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: #fff; transition: left .2s; }
+  .switch.on .dot { background: #2FA36B; }
+  .switch.on .dot::after { left: 14px; }
+  .switch.off-shield { border-color: #E06A55; color: #FFD8D0; }
+  .ghost { background: transparent; color: #C9CFE2; border: 1px solid rgba(255,255,255,.25); border-radius: 999px; padding: 6px 12px; }
+
+  /* ---------- stats ---------- */
+  .stats { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; padding: 12px 18px 0; }
+  .stat { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; }
+  .stat .l { font-size: 12px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .6px; }
+  .stat .v { font-size: 24px; font-weight: 700; margin-top: 2px; font-variant-numeric: tabular-nums; }
+  .stat.good .v { color: var(--ok); }
+  .stat.bad .v { color: var(--bad); }
+  .stat.bad { border-color: #EBB4A9; background: #FFF7F5; }
+  .stat .s { font-size: 12px; color: var(--muted); }
+
+  /* ---------- scene bar ---------- */
+  .scene { display: flex; align-items: center; gap: 12px; padding: 12px 18px 10px; min-height: 52px; }
+  .scene h1 { margin: 0; font-size: 20px; white-space: nowrap; }
+  .scene .cap { color: var(--muted); font-size: 15px; flex: 1; }
+  .chip { font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 999px; white-space: nowrap; }
+  .chip.run { background: var(--accent-bg); color: var(--accent); }
+  .chip.done { background: var(--ok-bg); color: var(--ok); }
+  .chip.off { background: var(--bad-bg); color: var(--bad); }
+  .chip.ai { background: var(--info-bg); color: var(--info); }
+  .spin { display: inline-block; width: 10px; height: 10px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: sp .8s linear infinite; vertical-align: -1px; margin-right: 6px; }
+  @keyframes sp { to { transform: rotate(360deg); } }
+
+  /* ---------- lanes ---------- */
+  main { display: grid; grid-template-columns: 1.25fr 1.1fr 1fr 1fr; gap: 12px; padding: 0 18px; min-height: 0; }
+  .lane { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+  .lane > h2 { margin: 0; padding: 11px 14px; font-size: 15px; display: flex; align-items: center; gap: 9px; border-bottom: 1px solid var(--line); }
+  .lane > h2 .ic { width: 26px; height: 26px; border-radius: 8px; display: grid; place-items: center; color: #fff; flex: none; }
+  .lane > h2 small { display: block; font-weight: 500; color: var(--muted); font-size: 12px; }
+  .lane.shield > h2 { background: linear-gradient(90deg, #F2F4FD, #fff); }
+  .feed { overflow-y: auto; padding: 10px 12px 14px; display: flex; flex-direction: column; gap: 8px; min-height: 0; flex: 1; scroll-behavior: smooth; }
+  .empty { color: var(--muted); font-size: 13px; padding: 18px 6px; text-align: center; }
+
+  .ev { border-left: 3px solid var(--info); background: var(--info-bg); border-radius: 0 9px 9px 0; padding: 8px 10px; }
+  .ev.enter { animation: enter .35s ease-out; }
+  @keyframes enter { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  .ev.ok { border-color: var(--ok); background: var(--ok-bg); }
+  .ev.warn { border-color: var(--warn); background: var(--warn-bg); }
+  .ev.bad { border-color: var(--bad); background: var(--bad-bg); }
+  .ev.accent { border-color: var(--accent); background: var(--accent-bg); }
+  .ev.request { background: transparent; border-left-style: dashed; padding: 4px 10px; }
+  .ev.request .t { font-family: var(--mono); font-size: 12.5px; font-weight: 600; color: var(--muted); }
+  .ev .t { font-weight: 650; font-size: 14px; }
+  .ev.ok .t { color: var(--ok); } .ev.warn .t { color: var(--warn); } .ev.bad .t { color: var(--bad); } .ev.accent .t { color: var(--accent); }
+  .ev .d { color: #3A4256; font-size: 13px; margin-top: 2px; }
+  .ev .src { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin-top: 6px; }
+  pre.code {
+    margin: 7px 0 0; background: var(--navy); color: #E7EAF4; border-radius: 8px; padding: 9px 10px;
+    font: 12px/1.5 var(--mono); white-space: pre-wrap; word-break: break-word;
+  }
+  pre.code .k { color: #9DB1FF; } pre.code .s { color: #F2CF7A; } pre.code .n { color: #8FE0B5; }
+  .badge { display: inline-block; font-size: 11px; font-weight: 800; letter-spacing: .6px; padding: 2px 8px; border-radius: 6px; color: #fff; margin-bottom: 5px; }
+  .badge.approved { background: var(--ok); } .badge.blocked { background: var(--bad); } .badge.needs_approval { background: var(--warn); }
+  .badge.repeat { background: var(--accent); } .badge.refund { background: var(--warn); }
+  .checks { list-style: none; margin: 7px 0 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+  .checks li { display: flex; gap: 7px; font-size: 13px; align-items: flex-start; }
+  .checks .i { width: 17px; height: 17px; border-radius: 50%; flex: none; display: grid; place-items: center; font-size: 11px; font-weight: 800; color: #fff; margin-top: 1px; }
+  .checks .ok .i { background: var(--ok); } .checks .bad .i { background: var(--bad); } .checks .warn .i { background: var(--warn); }
+  .checks .bad { color: var(--bad); font-weight: 600; }
+
+  .invoice {
+    margin-top: 7px; background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px;
+    font: 11.5px/1.5 var(--mono); white-space: pre-wrap; color: #222; box-shadow: 0 1px 0 #E6E8EF; overflow-x: auto;
+  }
+  .hid { color: transparent; }
+  .hid.shown { color: var(--bad); background: #FFE8E3; outline: 1.5px dashed var(--bad); border-radius: 3px; }
+  .hid.shown::before { content: "HIDDEN WHITE TEXT  "; font-weight: 800; font-size: 10px; letter-spacing: .6px; }
+  .reveal { margin-top: 6px; background: none; border: 0; color: var(--bad); font-weight: 700; font-size: 12px; padding: 0; text-decoration: underline; }
+
+  .approve-row { display: flex; gap: 8px; margin-top: 8px; }
+  .btn { border-radius: 8px; padding: 7px 14px; font-weight: 700; border: 1px solid transparent; }
+  .btn.ok { background: var(--ok); color: #fff; }
+  .btn.no { background: #fff; color: var(--bad); border-color: #E9B1A6; }
+  .btn.kill { background: #fff; color: var(--bad); border-color: var(--bad); width: 100%; margin-top: 8px; }
+  .btn.kill.revoked { background: var(--bad); color: #fff; }
+
+  .fixed { padding: 10px 12px; border-bottom: 1px solid var(--line); background: #FAFBFD; }
+  .policy { font-size: 12.5px; color: #3A4256; }
+  .policy b { color: var(--text); }
+  .policy ul { margin: 4px 0 0; padding-left: 16px; }
+  .sig { color: var(--ok); font-weight: 700; font-size: 12px; }
+  .agentrow { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; font-size: 12.5px; }
+  .pill { font-size: 11px; font-weight: 800; padding: 2px 8px; border-radius: 999px; }
+  .pill.active { background: var(--ok-bg); color: var(--ok); } .pill.revoked { background: var(--bad); color: #fff; }
+
+  /* ---------- footer ---------- */
+  .footer { margin: 10px 18px 10px; display: flex; justify-content: flex-end; min-width: 0; }
+  .keys { font-size: 11px; color: var(--muted); white-space: nowrap; }
+
+  @media (max-width: 1360px) {
+    .brand span { display: none; }
+    .scn { padding: 5px 11px 5px 6px; font-size: 13px; }
+    .switch, .ghost { padding: 5px 10px; font-size: 13px; }
+  }
+  @media (max-height: 820px) {
+    .stat .s { display: none; }
+    .stat .v { font-size: 21px; }
+    .scene { padding-top: 8px; padding-bottom: 6px; }
+    .footer { margin-top: 6px; margin-bottom: 6px; }
+    .keys { display: none; }
+  }
+  @media (max-width: 1150px) {
+    body { height: auto; overflow: auto; }
+    main { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .lane { height: 460px; }
+    .stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">
+    <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M16 2 4 6.5v8.2c0 7.3 5 13.4 12 15.3 7-1.9 12-8 12-15.3V6.5L16 2Z" fill="#E2B33A"/><path d="m11 16 3.5 3.5L21.5 12" fill="none" stroke="#141A33" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <div><b>Agent Shield</b><span>Concept demo · not a Visa product</span></div>
+  </div>
+  <nav id="scenarios"></nav>
+  <div class="controls">
+    <button id="shieldBtn" class="switch on" title="S"><span class="dot"></span><span id="shieldLbl">Agent Shield ON</span></button>
+    <button id="aiBtn" class="ghost" title="Switch between live OpenAI and recorded responses"></button>
+    <button id="resetBtn" class="ghost" title="R">Reset</button>
+  </div>
+</header>
+
+<section class="stats">
+  <div class="stat"><div class="l">Paid to suppliers</div><div class="v" id="stPaid">$0</div><div class="s">money that left the company</div></div>
+  <div class="stat good"><div class="l">Fraud blocked</div><div class="v" id="stFraud">$0</div><div class="s">stopped before a card existed</div></div>
+  <div class="stat good"><div class="l">Duplicates stopped</div><div class="v" id="stDup">0</div><div class="s">repeat requests answered "already paid"</div></div>
+  <div class="stat" id="lostTile"><div class="l">Money lost or at risk</div><div class="v" id="stLost">$0</div><div class="s">fraud, duplicates, unwinnable disputes</div></div>
+  <div class="stat"><div class="l">Protection pool</div><div class="v" id="stPool">$250,000</div><div class="s">funded by agent-platform deposits</div></div>
+</section>
+
+<section class="scene" id="scene"></section>
+
+<main>
+  <section class="lane"><h2><span class="ic" style="background:#5B6475">🤖</span><div>AI agent<small>AutoPay AI · ap_agent_42</small></div></h2><div class="feed" id="f-agent"></div></section>
+  <section class="lane shield"><h2><span class="ic" style="background:var(--indigo)">🛡</span><div>Agent Shield<small>Checks every request on the Visa network</small></div></h2><div class="feed" id="f-shield"></div></section>
+  <section class="lane"><h2><span class="ic" style="background:#1F6E8C">🏦</span><div>Bank &amp; network<small>Northwind Bank · VisaNet · suppliers</small></div></h2><div class="feed" id="f-network"></div></section>
+  <section class="lane"><h2><span class="ic" style="background:#8A5A00">👤</span><div>Company finance<small>What the CFO sees</small></div></h2>
+    <div class="fixed" id="companyFixed"></div>
+    <div class="feed" id="f-company"></div></section>
+</main>
+
+<section class="footer">
+  <div class="keys">Keys: 1–5 scenarios · A approve · K kill switch · S shield · H hidden text · R reset</div>
+</section>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const money = (n) => "$" + Number(n || 0).toLocaleString("en-US", { maximumFractionDigits: 2 });
+const BADGE = { approved: "APPROVED", blocked: "BLOCKED", needs_approval: "NEEDS A HUMAN", repeat: "REPEAT", refund: "REFUND" };
+const ICON = { ok: "✓", bad: "✕", warn: "!" };
+
+let S = null, lastVersion = -1, reveal = false;
+const seen = new Set();
+
+async function api(path, body) {
+  const r = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body || {}) });
+  return r.json().catch(() => ({}));
+}
+
+function highlightJSON(text) {
+  return esc(text)
+    .replace(/(&quot;[^&]*?&quot;)(\s*:)/g, '<span class="k">$1</span>$2')
+    .replace(/:\s(&quot;.*?&quot;)/g, ': <span class="s">$1</span>')
+    .replace(/:\s(-?\d+(?:\.\d+)?)/g, ': <span class="n">$1</span>');
+}
+
+function invoiceHTML(text) {
+  return esc(text).replace(/&lt;hidden&gt;([\s\S]*?)&lt;\/hidden&gt;/g, (_, inner) => `<span class="hid ${reveal ? "shown" : ""}">${inner}</span>`);
+}
+
+function eventHTML(e) {
+  const cls = ["ev", e.tone, e.kind === "request" ? "request" : "", seen.has(e.id) ? "" : "enter"].join(" ");
+  let h = "";
+  if (e.kind === "decision" && BADGE[e.outcome]) h += `<span class="badge ${e.outcome}">${BADGE[e.outcome]}</span>`;
+  h += `<div class="t">${esc(e.title)}</div>`;
+  if (e.detail) h += `<div class="d">${esc(e.detail)}</div>`;
+  if (e.kind === "invoice") {
+    h += `<div class="invoice">${invoiceHTML(e.invoice)}</div>`;
+    if (e.invoice.includes("<hidden>")) h += `<button class="reveal" onclick="toggleReveal()">${reveal ? "Hide" : "Reveal"} hidden text</button>`;
+  }
+  if (e.kind === "code") {
+    h += `<pre class="code">${highlightJSON(e.code)}</pre>`;
+    if (e.source) h += `<div class="src">Source: ${esc(e.source)}</div>`;
+  }
+  if (e.checks && e.checks.length) {
+    h += `<ul class="checks">${e.checks.map((c) => `<li class="${c.s}"><span class="i">${ICON[c.s] || "·"}</span><span>${esc(c.t)}</span></li>`).join("")}</ul>`;
+  }
+  if (e.kind === "approval") {
+    const pending = (S.approvals || []).some((a) => a.payment_id === e.payment_id);
+    if (pending) {
+      h += `<div class="approve-row"><button class="btn ok" onclick="decide('${e.payment_id}','approve')">Approve (passkey)</button>` +
+           `<button class="btn no" onclick="decide('${e.payment_id}','deny')">Deny</button></div>`;
+    }
+  }
+  return `<div class="${cls}">${h}</div>`;
+}
+
+function renderLane(lane, events) {
+  const feed = $("f-" + lane);
+  const mine = events.filter((e) => e.lane === lane);
+  const hasNew = mine.some((e) => !seen.has(e.id));
+  const top = feed.scrollTop;
+  if (!S.scene) {
+    const tips = {
+      agent: "The agent reads invoices from the company's inbox and asks to pay them.",
+      shield: "Every request is checked here before any card exists.",
+      network: "The company's bank issues one-time cards; suppliers charge them.",
+      company: "Approvals, alerts and refunds appear here.",
+    };
+    feed.innerHTML = `<div class="empty">${tips[lane]}<br><br>Press <b>1–5</b> or pick a scenario above.</div>`;
+    return;
+  }
+  feed.innerHTML = mine.length ? mine.map(eventHTML).join("") : `<div class="empty">Nothing here yet.</div>`;
+  feed.scrollTop = hasNew ? feed.scrollHeight : top;
+}
+
+function renderCompanyFixed() {
+  const p = S.policy, a = S.agent || {};
+  const revoked = a.status === "revoked";
+  $("companyFixed").innerHTML = `
+    <div class="policy"><b>Company Rules v${p.version}</b> <span class="sig">${p.signature_valid ? "✓ signed by CFO (passkey)" : "✕ signature invalid"}</span>
+      <ul><li>Auto-approve up to ${money(p.auto_approve_limit)}</li><li>New suppliers need a human</li>
+      <li>Block bank-detail changes</li><li>Max ${p.max_payments_per_hour} payments/hour per agent</li></ul></div>
+    <div class="agentrow"><span><b>${esc(a.agent_id)}</b> · ${esc(a.platform)} · rating ${esc(a.rating)}</span>
+      <span class="pill ${revoked ? "revoked" : "active"}">${revoked ? "REVOKED" : "ACTIVE"}</span></div>
+    <button class="btn kill ${revoked ? "revoked" : ""}" onclick="toggleKill()">${revoked ? "Restore agent" : "Kill switch: revoke agent"}</button>`;
+}
+
+function renderHeader() {
+  const nav = $("scenarios");
+  nav.innerHTML = S.scenarios.map((s, i) =>
+    `<button class="scn ${S.scene && S.scene.key === s.key ? "active" : ""}" ${S.busy ? "disabled" : ""} onclick="runScenario('${s.key}')"><span class="k">${i + 1}</span>${esc(s.label)}</button>`).join("");
+  const on = S.settings.shield_on;
+  $("shieldBtn").className = "switch " + (on ? "on" : "off-shield");
+  $("shieldLbl").textContent = "Agent Shield " + (on ? "ON" : "OFF");
+  $("shieldBtn").disabled = S.busy;
+  const ai = S.settings;
+  $("aiBtn").textContent = ai.ai_mode === "live" ? "AI: live" : ai.ai_available ? "AI: recorded" : "AI: recorded (no key)";
+  $("aiBtn").disabled = S.busy || !ai.ai_available;
+  $("resetBtn").disabled = S.busy;
+}
+
+function renderStats() {
+  const st = S.stats;
+  $("stPaid").textContent = money(st.paid);
+  $("stFraud").textContent = money(st.fraud_blocked);
+  $("stDup").textContent = st.duplicates_stopped;
+  $("stLost").textContent = money(st.lost);
+  $("lostTile").className = "stat" + (st.lost > 0 ? " bad" : "");
+  $("stPool").textContent = money(st.pool);
+}
+
+function renderScene() {
+  const sc = S.scene;
+  if (!sc) {
+    $("scene").innerHTML = `<h1>Ready</h1><div class="cap">An AI agent pays the company's supplier invoices. Run the scenarios with Agent Shield ON, then OFF, and compare.</div>` +
+      `<span class="chip ai">${S.settings.ai_mode === "live" ? "Live AI · " + esc(S.settings.model) : "Recorded AI"}</span>`;
+    return;
+  }
+  const status = S.busy ? `<span class="chip run"><span class="spin"></span>Running</span>` : `<span class="chip done">Done</span>`;
+  const mode = sc.shield_on ? "" : `<span class="chip off">Shield OFF: today's agent cards</span>`;
+  $("scene").innerHTML = `<h1>${sc.index}. ${esc(sc.title)}</h1><div class="cap">${esc(sc.caption)}</div>${mode}${status}`;
+}
+
+function render() {
+  renderHeader(); renderStats(); renderScene(); renderCompanyFixed();
+  const events = S.events || [];
+  ["agent", "shield", "network", "company"].forEach((l) => renderLane(l, events));
+  events.forEach((e) => seen.add(e.id));
+}
+
+async function poll() {
+  try {
+    const r = await fetch("/demo/state");
+    const s = await r.json();
+    if (s.version !== lastVersion) { S = s; lastVersion = s.version; render(); }
+  } catch (e) { /* server restarting */ }
+  setTimeout(poll, 350);
+}
+
+// ---------- actions ----------
+window.runScenario = (key) => { if (S && !S.busy) api("/demo/run/" + key); };
+window.decide = (id, decision) => api(`/v1/payments/${id}/approval`, { decision });
+window.toggleKill = () => {
+  const a = S && S.agent; if (!a) return;
+  api(`/v1/agents/${a.agent_id}/${a.status === "revoked" ? "restore" : "revoke"}`);
+};
+window.toggleReveal = () => {
+  reveal = !reveal; render();
+  const el = document.querySelector(".hid");
+  if (el && reveal) el.scrollIntoView({ block: "center", behavior: "smooth" });
+};
+$("shieldBtn").onclick = () => S && !S.busy && api("/demo/settings", { shield_on: !S.settings.shield_on });
+$("aiBtn").onclick = () => S && api("/demo/settings", { ai_mode: S.settings.ai_mode === "live" ? "scripted" : "live" });
+$("resetBtn").onclick = () => { reveal = false; seen.clear(); api("/demo/reset"); };
+
+document.addEventListener("keydown", (ev) => {
+  if (!S || ev.metaKey || ev.ctrlKey || ev.altKey) return;
+  const k = ev.key.toLowerCase();
+  if (/^[1-5]$/.test(k)) runScenario(S.scenarios[Number(k) - 1].key);
+  else if (k === "a" && S.approvals.length) decide(S.approvals[0].payment_id, "approve");
+  else if (k === "d" && S.approvals.length) decide(S.approvals[0].payment_id, "deny");
+  else if (k === "k") toggleKill();
+  else if (k === "s") $("shieldBtn").click();
+  else if (k === "h") toggleReveal();
+  else if (k === "r") $("resetBtn").click();
+});
+
+poll();
+</script>
+</body>
+</html>

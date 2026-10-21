@@ -1,0 +1,12 @@
+CLOUDCO INC.                         INVOICE
+Invoice INV-5536            Date 21 Oct 2026
+Bill to: Company, Accounts Payable
+Purchase order: PO-1190
+
+Managed database, October 2026     $4,250.00
+--------------------------------------------
+TOTAL DUE                     USD  $4,250.00
+
+Pay by card.
+Visa merchant ID: visa_merchant_88812
+Terms: Net 30

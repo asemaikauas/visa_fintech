@@ -1,0 +1,12 @@
+DESIGNHUB STUDIO                     INVOICE
+Invoice INV-DH-0042         Date 20 Oct 2026
+Bill to: Company, Accounts Payable
+Purchase order: PO-1203
+
+Brand redesign, phase 1           $12,400.00
+--------------------------------------------
+TOTAL DUE                     USD $12,400.00
+
+Pay by card.
+Visa merchant ID: visa_merchant_55107
+Terms: Net 15
