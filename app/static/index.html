@@ -131,10 +131,11 @@
   .btn.kill.revoked { background: var(--bad); color: #fff; }
 
   .fixed { padding: 10px 12px; border-bottom: 1px solid var(--line); background: #FAFBFD; }
-  .policy { font-size: 12.5px; color: #3A4256; }
-  .policy b { color: var(--text); }
-  .policy ul { margin: 4px 0 0; padding-left: 16px; }
-  .sig { color: var(--ok); font-weight: 700; font-size: 12px; }
+  .policy { font-size: 14.5px; color: #3A4256; }
+  .policy b { color: var(--text); font-size: 15.5px; }
+  .policy ul { margin: 6px 0 0; padding-left: 18px; }
+  .policy li { margin: 3px 0; }
+  .sig { color: var(--ok); font-weight: 700; font-size: 13.5px; }
   .agentrow { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; font-size: 12.5px; }
   .pill { font-size: 11px; font-weight: 800; padding: 2px 8px; border-radius: 999px; }
   .pill.active { background: var(--ok-bg); color: var(--ok); } .pill.revoked { background: var(--bad); color: #fff; }
@@ -269,7 +270,7 @@ function renderCompanyFixed() {
     <div class="policy"><b>Company Rules v${p.version}</b> <span class="sig">${p.signature_valid ? "✓ signed by CFO (passkey)" : "✕ signature invalid"}</span>
       <ul><li>Auto-approve up to ${money(p.auto_approve_limit)}</li><li>New suppliers need a human</li>
       <li>Block bank-detail changes</li><li>Max ${p.max_payments_per_hour} payments/hour per agent</li></ul></div>
-    <div class="agentrow"><span><b>${esc(a.platform)}</b> agent · rating ${esc(a.rating)}</span>
+    <div class="agentrow"><span><b>${esc(a.platform)}</b></span>
       <span class="pill ${revoked ? "revoked" : "active"}">${revoked ? "REVOKED" : "ACTIVE"}</span></div>
     <button class="btn kill ${revoked ? "revoked" : ""}" onclick="toggleKill()">${revoked ? "Restore agent" : "Kill switch: revoke agent"}</button>`;
 }
