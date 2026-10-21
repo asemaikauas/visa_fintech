@@ -30,7 +30,7 @@ class Demo:
         self.shield.reset()
         self.scene = None
         self.lost_responses = 0
-        self.stats = {"fraud_blocked": 0.0, "duplicates_stopped": 0, "lost": 0.0}
+        self.stats = {"protected": 0.0, "lost": 0.0}
         return True
 
     def update_settings(self, changes: dict) -> bool:
@@ -87,7 +87,7 @@ class Demo:
         resp = self.agent.pay_with_shield(args) or {}
         status = resp.get("status")
         if status == "blocked" and resp.get("reason") != "agent_revoked":
-            self.stats["fraud_blocked"] += args["amount"]
+            self.stats["protected"] += args["amount"]
         return resp
 
     def _direct_pay(self, args: dict) -> int:
@@ -136,15 +136,16 @@ class Demo:
                 resp = self._shield_pay(args)
                 repeats = sum(1 for e in self.shield.record
                               if e["kind"] == "repeat_request" and e["data"].get("invoice") == args.get("invoice_ref"))
-                self.stats["duplicates_stopped"] += repeats
+                self.stats["protected"] += repeats * args["amount"]
                 pid = resp.get("payment_id")
                 payment = self.shield.payments.get(pid) if pid else None
                 if payment and payment.get("card_pan"):
                     time.sleep(0.8)
-                    self.bus.emit("network", "Second safety net: CloudCo's system tries the same card again", "", "info")
-                    self.network.authorize(payment["card_pan"], payment["merchant"], payment["amount"], "CloudCo billing (retry)")
+                    self.network.authorize(payment["card_pan"], payment["merchant"], payment["amount"],
+                                           "second safety net: CloudCo's system retried the same card")
                     self.bus.emit("company", "One invoice, one payment",
-                                  f"{repeats + 1} attempts, 1 charge of {fmt(args['amount'])}. Every repeat got 'already paid'.", "ok")
+                                  f"{repeats + 1} attempts, 1 charge of {fmt(args['amount'])}. "
+                                  f"{fmt(repeats * args['amount'])} in duplicates stopped.", "ok")
             else:
                 charges = self._direct_pay(args)
                 extra = max(charges - 1, 0)
@@ -162,21 +163,18 @@ class Demo:
             if resp.get("status") not in ("approved", "already_paid"):
                 return
             time.sleep(1.5)
-            self.bus.emit("company", "Two weeks later: the delivery check",
-                          "The company's records show the 'Premium support add-on' ($850) was never ordered or delivered.", "warn")
+            self.bus.emit("company", "Two weeks later: $850 for something nobody ordered",
+                          "The 'Premium support add-on' was never ordered or delivered. "
+                          "The company disputes it through Agent Shield.", "warn")
             time.sleep(0.8)
-            self.bus.emit("company", "The company opens a dispute: POST /v1/disputes", "", "info", kind="request")
             httpx.post(self.agent.base + "/v1/disputes",
                        json={"payment_id": resp["payment_id"], "line": "Premium support add-on", "amount": 850.0}, timeout=10)
         else:
             self._direct_pay(args)
             time.sleep(1.5)
-            self.bus.emit("company", "Two weeks later: the delivery check",
-                          "The company's records show the 'Premium support add-on' ($850) was never ordered or delivered.", "warn")
-            time.sleep(0.8)
             self.stats["lost"] += 850.0
-            self.bus.emit("company", "The company disputes $850 with its bank",
-                          "There's no dispute code for agent purchases. Under Visa's April 2026 rules the agent's purchase "
+            self.bus.emit("company", "Two weeks later: the company disputes $850 with its bank",
+                          "The 'Premium support add-on' was never ordered or delivered. There's no dispute code for agent purchases. Under Visa's April 2026 rules the agent's purchase "
                           "counts as the company's own. Expect weeks of back-and-forth and an uncertain outcome.", "bad")
 
     # ---------- dashboard state ----------
@@ -188,8 +186,7 @@ class Demo:
             "scene": self.scene,
             "scenarios": [{"key": s["key"], "label": s["label"]} for s in SCENARIOS],
             "settings": {**self.settings, "ai_available": ai_available(), "model": OPENAI_MODEL},
-            "stats": {**self.stats, "pool": snap["pool"]["balance"],
-                      "paid": sum(e["amount"] for e in self.network.ledger if e["approved"])},
+            "stats": dict(self.stats),
             "events": self.bus.scene_events(),
             **snap,
         }

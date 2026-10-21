@@ -133,11 +133,13 @@ class Shield:
         p = self.payments[self.idem[key]]
         status = "already_paid" if p["status"] == "paid" else p["status"]
         self._append("repeat_request", {"invoice": p["invoice_ref"], "idempotency_key": key, "answer": status})
-        self.bus.emit(
-            "shield", f"Repeat with key {key}: {status.replace('_', ' ')}",
-            f"{p['invoice_ref']} was already handled ({p['id']}). No new card issued, no money moved.",
-            "accent", kind="decision", outcome="repeat",
-        )
+        p["repeats"] = p.get("repeats", 0) + 1
+        title = f"Repeat request ×{p['repeats']}: {status.replace('_', ' ')}"
+        detail = f"Same key {key}, so {p['invoice_ref']} isn't paid again. No new card, no money moved."
+        if p.get("repeat_card") and p["repeat_card"]["scene"] == self.bus.scene:
+            self.bus.update(p["repeat_card"], title=title, detail=detail)
+        else:
+            p["repeat_card"] = self.bus.emit("shield", title, detail, "accent", kind="decision", outcome="repeat")
         return 200, {"status": status, "payment_id": p["id"], "retry": False,
                      "message": f"{p['invoice_ref']} was already handled. Do not retry."}
 
@@ -245,10 +247,13 @@ class Shield:
                      "message": "Blocked by Agent Shield. Do not retry."}
 
     def _settle(self, payment: dict) -> None:
-        card = self.network.issue_single_use(payment["merchant"], payment["amount"], payment["id"])
-        self.bus.emit("network", f"Visa AR Manager delivered the card to {payment['merchant_name']}",
-                      "It goes straight to the supplier's payment system. The agent never sees the number.", "info")
-        self.network.authorize(card["pan"], payment["merchant"], payment["amount"], f"{payment['merchant_name']} billing")
+        card = self.network.issue_single_use(payment["merchant"], payment["amount"], payment["id"], quiet=True)
+        charge = self.network.authorize(card["pan"], payment["merchant"], payment["amount"],
+                                        f"{payment['merchant_name']} billing", quiet=True)
+        self.bus.emit("network", f"{payment['merchant_name']} paid {fmt(payment['amount'])} with single-use card ••{card['last4']}",
+                      f"{COMPANY['bank']} issued it locked to {payment['merchant_name']} for {fmt(payment['amount'])}, "
+                      "and Visa AR Manager delivered it straight to the supplier. The agent never sees the number.",
+                      "ok" if charge["approved"] else "bad")
         payment.update(status="paid", card_pan=card["pan"], card_last4=card["last4"])
         self.po_remaining[payment["po"]] -= payment["amount"]
         self.paid_invoices.add((payment["merchant"], payment["invoice_ref"]))
@@ -310,8 +315,8 @@ class Shield:
             self._append("dispute", {"payment": pid, "line": line, "amount": amount, "liable": "supplier"})
             self.bus.emit("company", f"Refunded {fmt(amount)} to the company from the protection pool",
                           "Instantly. The company doesn't wait for the chargeback.", "ok")
-            self.bus.emit("network", f"Chargeback raised against {p['merchant_name']}",
-                          "New agent dispute code (proposed)", "accent")
+            chargeback = self.bus.emit("network", f"Chargeback raised against {p['merchant_name']}",
+                                       "New agent dispute code (proposed)", "accent")
 
         def recover() -> None:
             time.sleep(3.0)
@@ -319,8 +324,9 @@ class Shield:
                 self.pool["balance"] += amount
                 self.pool["recovered"] += amount
                 self._append("chargeback_recovered", {"payment": pid, "amount": amount, "from": p["merchant_name"]})
-            self.bus.emit("network", f"Chargeback accepted: {p['merchant_name']} returned {fmt(amount)}",
-                          "Agent Shield's checks settled it. No back-and-forth.", "ok", scene=scene)
+            self.bus.update(chargeback, title=f"Chargeback accepted: {p['merchant_name']} returned {fmt(amount)}",
+                            detail="New agent dispute code (proposed). Agent Shield's checks settled it. No back-and-forth.",
+                            tone="ok")
             self.bus.emit("company", f"Protection pool recovered {fmt(amount)}",
                           "The agent platform pays nothing. The agent's rating stays A.", "ok", scene=scene)
 

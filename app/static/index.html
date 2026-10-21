@@ -58,10 +58,11 @@
   .ghost { background: transparent; color: #C9CFE2; border: 1px solid rgba(255,255,255,.25); border-radius: 999px; padding: 6px 12px; }
 
   /* ---------- stats ---------- */
-  .stats { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; padding: 12px 18px 0; }
+  .stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; padding: 12px 18px 0; }
   .stat { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; }
   .stat .l { font-size: 12px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .6px; }
-  .stat .v { font-size: 24px; font-weight: 700; margin-top: 2px; font-variant-numeric: tabular-nums; }
+  .stat { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+  .stat .v { font-size: 26px; font-weight: 700; font-variant-numeric: tabular-nums; }
   .stat.good .v { color: var(--ok); }
   .stat.bad .v { color: var(--bad); }
   .stat.bad { border-color: #EBB4A9; background: #FFF7F5; }
@@ -80,7 +81,7 @@
   @keyframes sp { to { transform: rotate(360deg); } }
 
   /* ---------- lanes ---------- */
-  main { display: grid; grid-template-columns: 1.25fr 1.1fr 1fr 1fr; gap: 12px; padding: 0 18px; min-height: 0; }
+  main { display: grid; grid-template-columns: 1.15fr 1.25fr 1fr; gap: 12px; padding: 0 18px; min-height: 0; }
   .lane { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
   .lane > h2 { margin: 0; padding: 11px 14px; font-size: 15px; display: flex; align-items: center; gap: 9px; border-bottom: 1px solid var(--line); }
   .lane > h2 .ic { width: 26px; height: 26px; border-radius: 8px; display: grid; place-items: center; color: #fff; flex: none; }
@@ -99,6 +100,7 @@
   .ev.request { background: transparent; border-left-style: dashed; padding: 4px 10px; }
   .ev.request .t { font-family: var(--mono); font-size: 12.5px; font-weight: 600; color: var(--muted); }
   .ev .t { font-weight: 650; font-size: 14px; }
+  .ev .tag { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 2px; }
   .ev.ok .t { color: var(--ok); } .ev.warn .t { color: var(--warn); } .ev.bad .t { color: var(--bad); } .ev.accent .t { color: var(--accent); }
   .ev .d { color: #3A4256; font-size: 13px; margin-top: 2px; }
   .ev .src { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin-top: 6px; }
@@ -161,7 +163,6 @@
     body { height: auto; overflow: auto; }
     main { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .lane { height: 460px; }
-    .stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   }
 </style>
 </head>
@@ -180,19 +181,15 @@
 </header>
 
 <section class="stats">
-  <div class="stat"><div class="l">Paid to suppliers</div><div class="v" id="stPaid">$0</div><div class="s">money that left the company</div></div>
-  <div class="stat good"><div class="l">Fraud blocked</div><div class="v" id="stFraud">$0</div><div class="s">stopped before a card existed</div></div>
-  <div class="stat good"><div class="l">Duplicates stopped</div><div class="v" id="stDup">0</div><div class="s">repeat requests answered "already paid"</div></div>
-  <div class="stat" id="lostTile"><div class="l">Money lost or at risk</div><div class="v" id="stLost">$0</div><div class="s">fraud, duplicates, unwinnable disputes</div></div>
-  <div class="stat"><div class="l">Protection pool</div><div class="v" id="stPool">$250,000</div><div class="s">funded by agent-platform deposits</div></div>
+  <div class="stat good"><div class="l">Protected</div><div class="v" id="stProtected">$0</div><div class="s">fraud blocked and duplicates stopped before money moved</div></div>
+  <div class="stat" id="lostTile"><div class="l">Lost</div><div class="v" id="stLost">$0</div><div class="s">fraud, duplicate charges and unwinnable disputes</div></div>
 </section>
 
 <section class="scene" id="scene"></section>
 
 <main>
   <section class="lane"><h2><span class="ic" style="background:#5B6475">🤖</span><div>AI agent<small>AutoPay AI · ap_agent_42</small></div></h2><div class="feed" id="f-agent"></div></section>
-  <section class="lane shield"><h2><span class="ic" style="background:var(--indigo)">🛡</span><div>Agent Shield<small>Checks every request on the Visa network</small></div></h2><div class="feed" id="f-shield"></div></section>
-  <section class="lane"><h2><span class="ic" style="background:#1F6E8C">🏦</span><div>Bank &amp; network<small>Northwind Bank · VisaNet · suppliers</small></div></h2><div class="feed" id="f-network"></div></section>
+  <section class="lane shield"><h2><span class="ic" style="background:var(--indigo)">🛡</span><div>Visa · Agent Shield<small>Checks every request, then the bank issues the card</small></div></h2><div class="feed" id="f-shield"></div></section>
   <section class="lane"><h2><span class="ic" style="background:#8A5A00">👤</span><div>Company finance<small>What the CFO sees</small></div></h2>
     <div class="fixed" id="companyFixed"></div>
     <div class="feed" id="f-company"></div></section>
@@ -232,6 +229,7 @@ function eventHTML(e) {
   const cls = ["ev", e.tone, e.kind === "request" ? "request" : "", seen.has(e.id) ? "" : "enter"].join(" ");
   let h = "";
   if (e.kind === "decision" && BADGE[e.outcome]) h += `<span class="badge ${e.outcome}">${BADGE[e.outcome]}</span>`;
+  if (e.lane === "network") h += `<div class="tag">🏦 Bank &amp; network</div>`;
   h += `<div class="t">${esc(e.title)}</div>`;
   if (e.detail) h += `<div class="d">${esc(e.detail)}</div>`;
   if (e.kind === "invoice") {
@@ -257,14 +255,13 @@ function eventHTML(e) {
 
 function renderLane(lane, events) {
   const feed = $("f-" + lane);
-  const mine = events.filter((e) => e.lane === lane);
+  const mine = events.filter((e) => e.lane === lane || (lane === "shield" && e.lane === "network"));
   const hasNew = mine.some((e) => !seen.has(e.id));
   const top = feed.scrollTop;
   if (!S.scene) {
     const tips = {
       agent: "The agent reads invoices from the company's inbox and asks to pay them.",
-      shield: "Every request is checked here before any card exists.",
-      network: "The company's bank issues one-time cards; suppliers charge them.",
+      shield: "Every request is checked here before any card exists. Then the company's bank issues a one-time card and the supplier charges it.",
       company: "Approvals, alerts and refunds appear here.",
     };
     feed.innerHTML = `<div class="empty">${tips[lane]}<br><br>Press <b>1–5</b> or pick a scenario above.</div>`;
@@ -302,12 +299,9 @@ function renderHeader() {
 
 function renderStats() {
   const st = S.stats;
-  $("stPaid").textContent = money(st.paid);
-  $("stFraud").textContent = money(st.fraud_blocked);
-  $("stDup").textContent = st.duplicates_stopped;
+  $("stProtected").textContent = money(st.protected);
   $("stLost").textContent = money(st.lost);
   $("lostTile").className = "stat" + (st.lost > 0 ? " bad" : "");
-  $("stPool").textContent = money(st.pool);
 }
 
 function renderScene() {
@@ -325,7 +319,7 @@ function renderScene() {
 function render() {
   renderHeader(); renderStats(); renderScene(); renderCompanyFixed();
   const events = S.events || [];
-  ["agent", "shield", "network", "company"].forEach((l) => renderLane(l, events));
+  ["agent", "shield", "company"].forEach((l) => renderLane(l, events));
   events.forEach((e) => seen.add(e.id));
 }
 
