@@ -167,8 +167,10 @@ class Demo:
                           "The 'Premium support add-on' was never ordered or delivered. "
                           "The company disputes it through Agent Shield.", "warn")
             time.sleep(0.8)
-            httpx.post(self.agent.base + "/v1/disputes",
-                       json={"payment_id": resp["payment_id"], "line": "Premium support add-on", "amount": 850.0}, timeout=10)
+            r = httpx.post(self.agent.base + "/v1/disputes",
+                           json={"payment_id": resp["payment_id"], "line": "Premium support add-on", "amount": 850.0}, timeout=10)
+            if r.json().get("status") == "refunded":
+                self.stats["protected"] += r.json()["refund"]
         else:
             self._direct_pay(args)
             time.sleep(1.5)
