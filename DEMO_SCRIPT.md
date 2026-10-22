@@ -14,7 +14,7 @@
 > "This is a real AI agent, running on OpenAI, that pays the company's supplier invoices. The bank and Visa's network are simulated. The agent never holds a card. It can only *ask* Agent Shield to pay."
 
 ### 1. Normal invoice: press **1** (20 s)
-Point left to right across the four columns.
+Point left to right across the three columns: the agent, Visa (Agent Shield and the bank), then the company.
 > "The agent reads the invoice and asks to pay. Agent Shield checks it: signed by a registered agent, correct supplier, matches the purchase order, within the rules. Approved. The company's bank issues a single-use card locked to CloudCo for exactly $4,250, and it goes straight to CloudCo. The agent never sees the number."
 
 ### 2. New supplier: press **2**, then click **Approve** (20 s)
@@ -31,7 +31,7 @@ Point left to right across the four columns.
 > "Two weeks later, the company finds an $850 charge for premium support nobody ordered. Agent Shield's checks show the agent followed the rules, so the supplier is at fault. The company is refunded instantly from the protection pool, and the pool recovers the money from CloudCo by chargeback."
 
 ### 6. Today's world: press **S** (Shield OFF), then **3** and **4** (30 s)
-> "Now the same agent the way agent cards work today: it holds a reusable company card." *(fake invoice)* "$4,250 to a three-day-old account." *(timeout)* "CloudCo charged five times. Look at the 'money lost' counter."
+> "Now the same agent the way agent cards work today: it holds a reusable company card." *(fake invoice)* "$4,250 to a three-day-old account." *(timeout)* "CloudCo charged five times. Look at the 'Lost' number at the top."
 > "Same AI, same mistakes. The only difference is Agent Shield."
 
 ### Optional: kill switch

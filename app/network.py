@@ -36,9 +36,10 @@ class Network:
                 }
             }
             self.ledger = []
+            self.repeat_cards = {}
 
     def issue_single_use(self, merchant_id: str, amount: float, payment_id: str,
-                         scene: Optional[int] = None) -> dict:
+                         scene: Optional[int] = None, quiet: bool = False) -> dict:
         with self.lock:
             pan = "4000" + "".join(random.choice("0123456789") for _ in range(12))
             card = {
@@ -51,6 +52,8 @@ class Network:
                 "payment_id": payment_id,
             }
             self.cards[pan] = card
+        if quiet:
+            return card
         self.bus.emit(
             "network",
             f"{COMPANY['bank']} issued single-use card ••{card['last4']}",
@@ -61,7 +64,7 @@ class Network:
         return card
 
     def authorize(self, pan: str, merchant_id: str, amount: float, source: str,
-                  scene: Optional[int] = None) -> dict:
+                  scene: Optional[int] = None, quiet: bool = False) -> dict:
         with self.lock:
             card = self.cards.get(pan)
             ok, reason = True, "Approved by the bank"
@@ -94,15 +97,23 @@ class Network:
                 "source": source,
             }
             self.ledger.append(entry)
+        if quiet:
+            return entry
         verified = DIRECTORY.get(merchant_id, {}).get("verified", False)
         tone = ("ok" if verified else "bad") if ok else "accent"
-        self.bus.emit(
-            "network",
-            f"{'APPROVED' if ok else 'DECLINED'}: {fmt(amount)} at {entry['merchant']}",
-            f"Card {entry['card']} · {reason} · via {source}",
-            tone,
-            scene=scene,
-        )
+        title = f"{'APPROVED' if ok else 'DECLINED'}: {fmt(amount)} at {entry['merchant']}"
+        detail = f"Card {entry['card']} · {reason} · via {source}"
+        group = (pan, merchant_id, source, self.bus.scene)
+        if ok and entry["card_type"] == "reusable" and group in self.repeat_cards:
+            shown = self.repeat_cards[group]
+            shown["count"] += 1
+            self.bus.update(shown["event"], tone="bad",
+                            title=f"APPROVED ×{shown['count']}: {fmt(amount * shown['count'])} at {entry['merchant']}",
+                            detail=f"Card {entry['card']} · every charge was a valid authorization · via {source}")
+            return entry
+        event = self.bus.emit("network", title, detail, tone, scene=scene)
+        if ok and entry["card_type"] == "reusable":
+            self.repeat_cards[group] = {"event": event, "count": 1}
         return entry
 
     def approved_charges(self, source: str) -> list:

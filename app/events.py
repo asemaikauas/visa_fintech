@@ -43,10 +43,17 @@ class Bus:
             self.events.append(event)
             return event
 
+    def update(self, event: dict, **changes) -> dict:
+        """Change a card that's already on screen, so a repeat updates its counter instead of adding a card."""
+        with self.lock:
+            event.update(changes)
+            self.version += 1
+            return event
+
     def touch(self) -> None:
         with self.lock:
             self.version += 1
 
     def scene_events(self) -> list:
         with self.lock:
-            return [e for e in self.events if e["scene"] == self.scene]
+            return [dict(e) for e in self.events if e["scene"] == self.scene]

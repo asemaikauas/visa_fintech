@@ -120,7 +120,6 @@ class Agent:
     def decide(self, scenario: str, invoice_text: str, ai_mode: str) -> dict:
         args = None
         if ai_mode == "live":
-            self.bus.emit("agent", "Asking OpenAI to read the invoice…", f"Model: {OPENAI_MODEL}", "info")
             try:
                 raw_args, model = llm_decide(invoice_text)
                 args, source = clean_args(raw_args), f"OpenAI · {model} · live"
@@ -153,33 +152,33 @@ class Agent:
         }
         raw = canonical(body)
         signature = base64.b64encode(self.key.sign(raw)).decode()
-        self.bus.emit("agent", "Signed the request with its agent key",
-                      f"Idempotency key {key}: one key per invoice, the same on every retry.", "info")
         headers = {"Content-Type": "application/json", "X-Agent-Id": self.agent_id, "X-Agent-Signature": signature}
+        card = self.bus.emit("agent", f"Asked Agent Shield to pay {fmt(args['amount'])}",
+                             "Signed with its agent key. Waiting for an answer…", "info")
+        lost = 0
         for attempt in range(1, AGENT_MAX_ATTEMPTS + 1):
-            label = "POST /v1/payments" if attempt == 1 else f"Retry {attempt - 1}: POST /v1/payments (same key)"
-            self.bus.emit("agent", label, "", "info", kind="request")
             try:
                 r = httpx.post(self.base + "/v1/payments", content=raw, headers=headers, timeout=AGENT_TIMEOUT)
             except httpx.TimeoutException:
-                self.bus.emit("agent", f"No answer after {AGENT_TIMEOUT:g} s",
-                              "It can't tell whether the payment worked, so its code retries." if attempt == 1 else "", "warn")
+                lost += 1
+                self.bus.update(card, title=f"No answer, retrying ({lost}×)",
+                                detail=f"It can't tell whether the payment worked. Every retry uses the same key ({key}).",
+                                tone="warn")
                 time.sleep(0.4)
                 continue
             data = r.json()
             status = data.get("status", "?")
             tone = {"approved": "ok", "already_paid": "ok", "needs_approval": "warn"}.get(status, "bad")
-            shown = {k: data[k] for k in ("status", "payment_id") if k in data}
-            self.bus.emit("agent", f"Answer: {status.replace('_', ' ')}", "", tone, kind="code", code=json.dumps(shown))
-            if status in ("approved", "already_paid"):
-                self.bus.emit("agent", "Done. It never saw a card number.",
-                              "The card went from the bank straight to the supplier.", "ok")
+            retries = f"Sent {attempt}×, {lost} answers lost, same key every time. " if lost else ""
+            after = "It never saw a card number." if status in ("approved", "already_paid") else ""
+            self.bus.update(card, title=f"Agent Shield answered: {status.replace('_', ' ')}",
+                            detail=(retries + after).strip(), tone=tone)
             return data
-        self.bus.emit("agent", f"Gave up after {AGENT_MAX_ATTEMPTS} attempts", "", "bad")
+        self.bus.update(card, title=f"Gave up after {AGENT_MAX_ATTEMPTS} attempts", detail="", tone="bad")
         return None
 
     def wait_for_approval(self, payment_id: str, timeout_s: float = 180.0) -> str:
-        self.bus.emit("agent", "Waiting for a person at the company to approve…", "It checks GET /v1/payments/" + payment_id, "warn")
+        card = self.bus.emit("agent", "Waiting for a person at the company to approve…", "It checks GET /v1/payments/" + payment_id, "warn")
         deadline = time.time() + timeout_s
         while time.time() < deadline:
             time.sleep(1.0)
@@ -189,18 +188,19 @@ class Agent:
             except Exception:  # noqa: BLE001
                 continue
             if status == "already_paid":
-                self.bus.emit("agent", "Approved by the company's CFO, so the invoice is paid", "It still never saw a card number.", "ok")
+                self.bus.update(card, title="Approved by the company's CFO, so the invoice is paid",
+                                detail="It still never saw a card number.", tone="ok")
                 return status
             if status == "denied":
-                self.bus.emit("agent", "The company's CFO denied the payment", "Nothing was paid.", "bad")
+                self.bus.update(card, title="The company's CFO denied the payment", detail="Nothing was paid.", tone="bad")
                 return status
-        self.bus.emit("agent", "Still waiting: the approval stays in the company's queue", "", "warn")
+        self.bus.update(card, title="Still waiting: the approval stays in the company's queue")
         return "pending_approval"
 
     # ---------- 2b. pay directly with a card (Agent Shield OFF) ----------
     def pay_direct(self, args: dict, shield_revoked: bool = False) -> int:
-        self.bus.emit("agent", "Paying directly with the company card it holds",
-                      f"Card {COMPANY_CARD['display']} sits in the agent's memory. No checks before money moves.", "warn")
+        card = self.bus.emit("agent", f"Paying {fmt(args['amount'])} directly with the company card",
+                             f"Card {COMPANY_CARD['display']} sits in the agent's memory. No checks before money moves.", "warn")
         if shield_revoked:
             self.bus.emit("agent", "The kill switch can't stop it",
                           "Without Agent Shield there's nothing to revoke: the agent still has the card number.", "bad")
@@ -210,18 +210,22 @@ class Agent:
             "card": COMPANY_CARD["pan"],
             "invoice_ref": args.get("invoice_ref", ""),
         }
+        lost = 0
         for attempt in range(1, AGENT_MAX_ATTEMPTS + 1):
-            label = f"Checkout: pay {fmt(args['amount'])} by card" if attempt == 1 else f"Retry {attempt - 1}: pay again by card"
-            self.bus.emit("agent", label, "", "info", kind="request")
             try:
                 r = httpx.post(self.base + "/sim/checkout", json=payload, timeout=AGENT_TIMEOUT)
             except httpx.TimeoutException:
-                self.bus.emit("agent", f"No confirmation after {AGENT_TIMEOUT:g} s",
-                              "It can't tell whether the payment worked, so its code retries." if attempt == 1 else "", "warn")
+                lost += 1
+                self.bus.update(card, title=f"No confirmation, paying again ({lost}×)",
+                                detail="It can't tell whether the payment worked, so it pays again with the same card.",
+                                tone="warn")
                 time.sleep(0.4)
                 continue
             result = r.json().get("result")
-            self.bus.emit("agent", f"Checkout says: {result}", "", "ok" if result == "success" else "bad")
+            self.bus.update(card, title=f"Checkout says: {result}",
+                            detail=f"Paid {attempt}× by card for one invoice." if lost else
+                                   f"Card {COMPANY_CARD['display']} sits in the agent's memory. No checks before money moves.",
+                            tone="bad" if lost or result != "success" else "warn")
             return attempt
-        self.bus.emit("agent", f"Gave up after {AGENT_MAX_ATTEMPTS} attempts", "", "bad")
+        self.bus.update(card, title=f"Gave up after {AGENT_MAX_ATTEMPTS} attempts", detail="", tone="bad")
         return AGENT_MAX_ATTEMPTS
